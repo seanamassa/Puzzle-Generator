@@ -42,7 +42,7 @@ public class SokobanGenerator : MonoBehaviour
         List<Vector2Int> switches = new List<Vector2Int>();
         List<Vector2Int> requiredCrates = new List<Vector2Int>();
 
-        // 1. Spaced-Out Goal Generation based on Switch Count
+        // Spaced-Out Goal Generation based on Switch Count
         for (int i = 0; i < switchCount; i++) {
             Vector2Int pos = Vector2Int.zero;
             int attempts = 0;
@@ -68,7 +68,7 @@ public class SokobanGenerator : MonoBehaviour
         int turns = 0;
         Vector2Int lastDir = Vector2Int.zero;
 
-        // 2. Reverse Pulling for Required Crates
+        // Ensuring a valid solution path while maximizing distance and turns
         for (int i = 0; i < complexitySteps; i++) 
         {
             int cIndex = Random.Range(0, requiredCrates.Count);
@@ -97,20 +97,18 @@ public class SokobanGenerator : MonoBehaviour
             }
         }
 
-        // 3. Inject Misdirection Architecture
+        // Inject Misdirection Architecture
         AddDeadEnds();
         InjectPillars();
 
-        // 4. Place Red Herring Crates
-        // We do this BEFORE final placement so we don't accidentally overwrite switches
+        // Place decoy crates before final placement so we don't accidentally overwrite switches
         AddDecoyCrates(requiredCrates, switches, currentPlayer);
 
-        // 5. Final Placement of Required Elements
+        // Final Placement of Required Elements
         foreach (var s in switches) grid[s.x, s.y] = TileType.Switch;
         foreach (var c in requiredCrates) grid[c.x, c.y] = TileType.Crate;
         grid[currentPlayer.x, currentPlayer.y] = TileType.Player;
 
-        // Score Calculation accounts for the extra cognitive load of decoys
         float avgDistance = 0;
         for(int i=0; i<requiredCrates.Count; i++) avgDistance += Vector2Int.Distance(requiredCrates[i], switches[i]);
         avgDistance /= requiredCrates.Count;
@@ -131,8 +129,7 @@ public class SokobanGenerator : MonoBehaviour
             if (grid[pos.x, pos.y] == TileType.Floor && 
                 !required.Contains(pos) && !switches.Contains(pos) && pos != player)
             {
-                // Safety Check: Ensure the decoy is in a relatively open area (3+ floor neighbors)
-                // This prevents the decoy from spawning in a 1-tile hallway and hard-locking the game.
+                // Safety Check: Prevents the decoy from spawning in a 1-tile hallway and hard-locking the game.
                 if (CountFloorNeighbors(pos) >= 3)
                 {
                     grid[pos.x, pos.y] = TileType.Crate; // Rendered identical to required crates
@@ -143,6 +140,7 @@ public class SokobanGenerator : MonoBehaviour
         }
     }
 
+    // Counts how many adjacent tiles are Floor or Switch, used to prevent placing decoys in tight spots
     int CountFloorNeighbors(Vector2Int pos)
     {
         int count = 0;
@@ -153,6 +151,7 @@ public class SokobanGenerator : MonoBehaviour
         return count;
     }
 
+    // Carves a path for the player from start to end, avoiding critical crate positions
     void CarvePlayerPath(Vector2Int start, Vector2Int end, List<Vector2Int> avoidCrates) 
     {
         Vector2Int curr = start;
@@ -188,6 +187,7 @@ public class SokobanGenerator : MonoBehaviour
         SetFloor(end);
     }
 
+    // Adds random dead-end corridors to increase the visual complexity and mislead players
     void AddDeadEnds() 
     {
         for (int i = 0; i < 20; i++) {
@@ -203,6 +203,7 @@ public class SokobanGenerator : MonoBehaviour
         }
     }
 
+    // Injects "pillars" of walls in 3x3 floor areas to create visual noise and false paths, without blocking the solution
     void InjectPillars()
     {
         for (int x = 2; x < width - 2; x++) {
@@ -212,6 +213,7 @@ public class SokobanGenerator : MonoBehaviour
         }
     }
 
+    // Checks if a 3x3 area centered on (cx, cy) is all Floor or Switch, ensuring we don't block critical paths when placing pillars
     bool IsAllFloor3x3(int cx, int cy) {
         for(int x = cx - 1; x <= cx + 1; x++) {
             for(int y = cy - 1; y <= cy + 1; y++) {
@@ -221,6 +223,7 @@ public class SokobanGenerator : MonoBehaviour
         return true;
     }
 
+    // Sets a tile to Floor if it's not already a Switch, ensuring we don't overwrite critical goal positions
     void SetFloor(Vector2Int p) {
         if (grid[p.x, p.y] != TileType.Switch) grid[p.x, p.y] = TileType.Floor;
     }
@@ -235,20 +238,33 @@ public class SokobanGenerator : MonoBehaviour
         cam.orthographicSize = (height / 2f) + 1f;
     }
 
-    private void OnDrawGizmos() {
+    private void OnDrawGizmos() 
+    {
         if (grid == null) return;
         for (int x = 0; x < width; x++) {
             for (int y = 0; y < height; y++) {
                 Vector3 pos = new Vector3(x, y, 0);
-                Gizmos.color = GetColor(grid[x, y]);
-                Gizmos.DrawCube(pos, Vector3.one);
-                Gizmos.color = new Color(0, 0, 0, 0.4f); 
-                Gizmos.DrawWireCube(pos, Vector3.one);
+                TileType type = grid[x, y];
+
+                if (type == TileType.Player) {
+                    Gizmos.color = GetColor(TileType.Floor);
+                    Gizmos.DrawCube(pos, Vector3.one);
+                    Gizmos.color = new Color(0, 0, 0, 0.4f); 
+                    Gizmos.DrawWireCube(pos, Vector3.one);
+                    Gizmos.color = GetColor(TileType.Player);
+                    Gizmos.DrawSphere(pos, 0.4f); 
+                } else {
+                    Gizmos.color = GetColor(type);
+                    Gizmos.DrawCube(pos, Vector3.one);
+                    Gizmos.color = new Color(0, 0, 0, 0.4f); 
+                    Gizmos.DrawWireCube(pos, Vector3.one);
+                }
             }
         }
     }
 
-    Color GetColor(TileType t) {
+    Color GetColor(TileType t) 
+    {
         switch (t) {
             case TileType.Wall: return new Color(0.2f, 0.2f, 0.2f);
             case TileType.Switch: return Color.green;
